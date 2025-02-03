@@ -265,7 +265,8 @@ def generate_questions_view(request, pdf_id):
             num_questions=num_questions
         )
         
-        request.session['generated_content'] = generated_content
+        # Store with PDF-specific key
+        request.session[f'generated_{pdf_id}'] = generated_content
         request.session.modified = True
         return JsonResponse({'generated_content': generated_content})
         
@@ -273,10 +274,10 @@ def generate_questions_view(request, pdf_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 @login_required(login_url='login')
-def download_summary(request):
-    generated_content = request.session.get('generated_content', 'No content generated yet')
+def download_summary(request, pdf_id):
+    generated_content = request.session.get(f'generated_{pdf_id}', 'No content generated yet')
     response = HttpResponse(generated_content, content_type='text/plain')
-    response['Content-Disposition'] = 'attachment; filename="generated_questions.txt"'
+    response['Content-Disposition'] = f'attachment; filename="questions_{pdf_id}.txt"'
     return response
 
 def extract_pdf_text(file):
