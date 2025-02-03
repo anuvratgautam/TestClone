@@ -12,5 +12,5 @@ urlpatterns = [
     path('verify-email/', views.verify_email, name='verify_email'),
     path('llm/', views.llm, name='llm'),
     path('generate-questions/<int:pdf_id>/', views.generate_questions_view, name='generate_questions'),
-    path('download-summary/', views.download_summary, name='download_summary'),
+    path('download-summary/<int:pdf_id>/', views.download_summary, name='download_summary'),
 ]

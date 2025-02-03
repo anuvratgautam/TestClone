@@ -205,12 +205,12 @@
         const resultsContainer = document.getElementById(`results-${pdfId}`);
         const questionsContainer = document.getElementById(`questions-${pdfId}`);
         const numQuestions = document.getElementById(`numQuestions${pdfId}`).value;
-    
+
         try {
             generateBtn.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Generating...`;
             generateBtn.disabled = true;
             questionsContainer.style.display = 'none';
-    
+
             const response = await fetch(`/generate-questions/${pdfId}/`, {
                 method: 'POST',
                 headers: {
@@ -219,14 +219,20 @@
                 },
                 body: JSON.stringify({ num_questions: numQuestions })
             });
-    
+
             const data = await response.json();
             
             if (response.ok) {
                 resultsContainer.innerHTML = data.generated_content.replace(/\n/g, '<br>');
                 questionsContainer.style.display = 'block';
                 downloadBtn.disabled = false;
-                sessionStorage.setItem(`pdfContent-${pdfId}`, data.generated_content);
+                
+                // Store both generated content and analysis
+                const analysisContent = document.getElementById(`analysisText${pdfId}`).innerText;
+                sessionStorage.setItem(`pdfContent-${pdfId}`, JSON.stringify({
+                    questions: data.generated_content,
+                    analysis: analysisContent
+                }));
             } else {
                 throw new Error(data.error || 'Failed to generate questions');
             }
@@ -237,27 +243,33 @@
             generateBtn.disabled = false;
         }
     }
-    
+
     function downloadSummary(pdfId) {
-        const content = sessionStorage.getItem(`pdfContent-${pdfId}`);
-        if (!content) {
+        const storedData = sessionStorage.getItem(`pdfContent-${pdfId}`);
+        if (!storedData) {
             alert('No generated content available. Please generate questions first.');
             return;
         }
         
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `questions_${pdfId}_${new Date().toISOString().split('T')[0]}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        try {
+            const { questions, analysis } = JSON.parse(storedData);
+            const fullContent = `ANALYSIS:\n${analysis}\n\nQUESTIONS:\n${questions}`;
+            
+            const blob = new Blob([fullContent], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `summary_${pdfId}_${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            alert('Error generating summary: ' + error.message);
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        // Collapse animation handling
         const triggers = document.querySelectorAll('[data-bs-toggle="collapse"]');
         triggers.forEach(trigger => {
             trigger.addEventListener('click', (e) => {

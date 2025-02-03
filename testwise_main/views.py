@@ -275,10 +275,23 @@ def generate_questions_view(request, pdf_id):
 
 @login_required(login_url='login')
 def download_summary(request, pdf_id):
-    generated_content = request.session.get(f'generated_{pdf_id}', 'No content generated yet')
-    response = HttpResponse(generated_content, content_type='text/plain')
-    response['Content-Disposition'] = f'attachment; filename="questions_{pdf_id}.txt"'
-    return response
+    try:
+        pdf = get_object_or_404(PDF, id=pdf_id, user=request.user)
+        generated_content = request.session.get(f'generated_{pdf_id}', 'No questions generated yet')
+        
+        # Combine analysis and generated questions
+        full_content = f"""ANALYSIS:
+        {pdf.analysis if pdf.analysis else 'No analysis available'}
+
+        GENERATED QUESTIONS:
+        {generated_content}"""
+        
+        response = HttpResponse(full_content, content_type='text/plain')
+        response['Content-Disposition'] = f'attachment; filename="summary_{pdf.title}.txt"'
+        return response
+        
+    except Exception as e:
+        return HttpResponse(f"Error generating summary: {str(e)}", status=500)
 
 def extract_pdf_text(file):
     text = ""
