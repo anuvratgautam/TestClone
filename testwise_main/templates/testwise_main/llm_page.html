@@ -1,0 +1,37 @@
+{% extends 'base_dashboard.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>Your Uploaded PDFs</h1>
+    
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+            <p{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+    
+    {% if user_pdfs %}
+        {% for pdf in user_pdfs %}
+        <div class="pdf-item">
+            <h2>{{ pdf.title }}</h2>
+            <a href="{{ pdf.pdf_file.url }}" class="view-pdf">View PDF</a>
+
+            <div class="analysis-section">
+                <h3>AI Analysis</h3>
+                {% if pdf.analysis %}
+                    <p>{{ pdf.analysis|linebreaks }}</p>
+                    <small>Analyzed at: {{ pdf.analyzed_at|date:"F j, Y, g:i a" }}</small>
+                {% else %}
+                    <p>Analysis in progress... Please refresh the page.</p>
+                {% endif %}
+            </div>
+        </div>
+        <hr>
+        {% endfor %}
+    {% else %}
+        <p>No PDFs uploaded yet. Please upload PDFs from the home page.</p>
+    {% endif %}
+</div>
+{% endblock %}
