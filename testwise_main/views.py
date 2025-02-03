@@ -1,4 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_POST
+import PyPDF2
+from .ai_handlers import generate_questions_with_mistral
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -17,7 +20,8 @@ from testwise_main.models import PDF
 from .ai_handlers import DocumentAnalyzer
 from django.utils import timezone
 import logging
-
+import json
+from django.http import JsonResponse
 
 def generate_otp():
     return random.randint(100000, 999999)
@@ -172,7 +176,7 @@ def upload_pdf(request):
 
 @login_required(login_url='login')
 def delete_pdf(request, pk):
-    pdf = get_object_or_404(PDF, pk=pk)
+    pdf = get_object_or_404(PDF, pk=pk, user=request.user)
     if request.method == 'POST':
         pdf.pdf_file.delete()
         pdf.delete()
@@ -246,3 +250,44 @@ def llm(request):
         logger.error(f"General error in LLM view: {str(e)}")
         messages.error(request, f"Error processing PDFs: {str(e)}")
         return redirect('pdf_list')
+    
+@require_POST
+@login_required(login_url='login')
+def generate_questions_view(request, pdf_id):
+    try:
+        pdf = get_object_or_404(PDF, id=pdf_id, user=request.user)
+        text_content = extract_pdf_text(pdf.pdf_file)
+        data = json.loads(request.body)
+        num_questions = data.get('num_questions', 5)
+        
+        generated_content = generate_questions_with_mistral(
+            text_content=text_content,
+            num_questions=num_questions
+        )
+        
+        request.session['generated_content'] = generated_content
+        request.session.modified = True
+        return JsonResponse({'generated_content': generated_content})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required(login_url='login')
+def download_summary(request):
+    generated_content = request.session.get('generated_content', 'No content generated yet')
+    response = HttpResponse(generated_content, content_type='text/plain')
+    response['Content-Disposition'] = 'attachment; filename="generated_questions.txt"'
+    return response
+
+def extract_pdf_text(file):
+    text = ""
+    try:
+        with file.open('rb') as f:
+            reader = PyPDF2.PdfReader(f)
+            for page in reader.pages:
+                text += page.extract_text() + "\n"
+    except PyPDF2.errors.PdfReadError:
+        raise ValueError("Invalid PDF file format")
+    except Exception as e:
+        raise RuntimeError(f"Error reading PDF: {str(e)}")
+    return text

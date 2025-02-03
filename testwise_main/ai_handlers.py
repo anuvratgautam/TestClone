@@ -4,7 +4,11 @@ import pytesseract
 from PIL import Image
 import fitz 
 from django.conf import settings
+import logging
 
+logger = logging.getLogger(__name__)
+
+# Existing DocumentAnalyzer class remains unchanged
 class DocumentAnalyzer:
     def __init__(self):
         self.api_key = settings.MISTRAL_API_KEY
@@ -22,7 +26,6 @@ class DocumentAnalyzer:
                 text += page.get_text()
             doc.close()
             
-           
             if not text.strip():
                 print("No text found in PDF, attempting OCR...")
                 doc = fitz.open(pdf_path)
@@ -81,3 +84,34 @@ class DocumentAnalyzer:
         except Exception as e:
             print(f"Error in document analysis: {str(e)}")
             raise Exception(f"Error analyzing document: {str(e)}")
+
+# New question generation function added below
+def generate_questions_with_mistral(text_content, num_questions=5):
+    """Generate assessment questions using Mistral AI"""
+    try:
+        client = Mistral(api_key=settings.MISTRAL_API_KEY)
+        
+        prompt = f"""Generate {num_questions} exam questions based on this content:
+        {text_content[:3000]}
+
+        Requirements:
+        - Mix of multiple choice and short answer
+        - Include correct answers
+        - Focus on key concepts
+        - Use academic language
+        - Format clearly with numbering"""
+        
+        response = client.chat.complete(
+            model="mistral-large-latest",
+            messages=[
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        
+        return response.choices[0].message.content
+        
+    except Exception as e:
+        logger.error(f"Mistral question generation failed: {str(e)}")
+        raise Exception(f"Question generation error: {str(e)}")
